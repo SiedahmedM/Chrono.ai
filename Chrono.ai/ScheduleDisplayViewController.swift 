@@ -1,0 +1,149 @@
+// ScheduleDisplayViewController.swift
+// Chrono.ai
+//
+// Created by Mohamed Siedahmed on 5/14/25.
+
+import UIKit
+
+// Direct reference to ScheduleItem types to resolve compilation issues
+// You can remove these once the main compilation issues are resolved
+enum ScheduleItemType {
+    case event // Calendar event
+    case task  // Reminder/todo item
+}
+
+struct ScheduleItem {
+    let id = UUID()
+    let title: String
+    let type: ScheduleItemType
+    let startDate: Date?
+    let endDate: Date?
+    let dueDate: Date?
+    let notes: String?
+}
+
+class ScheduleDisplayViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
+    
+    private let tableView = UITableView()
+    private let scheduleItems: [ScheduleItem]
+    
+    init(scheduleItems: [ScheduleItem]) {
+        self.scheduleItems = scheduleItems
+        super.init(nibName: nil, bundle: nil)
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        setupUI()
+    }
+    
+    private func setupUI() {
+        view.backgroundColor = .systemBackground
+        title = "Your Schedule"
+        
+        // Configure table view
+        tableView.translatesAutoresizingMaskIntoConstraints = false
+        tableView.register(UITableViewCell.self, forCellReuseIdentifier: "ScheduleCell")
+        tableView.dataSource = self
+        tableView.delegate = self
+        view.addSubview(tableView)
+        
+        // Layout constraints
+        NSLayoutConstraint.activate([
+            tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            tableView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor)
+        ])
+    }
+    
+    // MARK: - Table View Data Source
+    
+    func numberOfSections(in tableView: UITableView) -> Int {
+        return 2
+    }
+    
+    func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
+        return section == 0 ? "Events" : "Tasks"
+    }
+    
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        if section == 0 {
+            return scheduleItems.filter { $0.type == .event }.count
+        } else {
+            return scheduleItems.filter { $0.type == .task }.count
+        }
+    }
+    
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        let cell = tableView.dequeueReusableCell(withIdentifier: "ScheduleCell", for: indexPath)
+        
+        let filteredItems = indexPath.section == 0
+            ? scheduleItems.filter { $0.type == .event }
+            : scheduleItems.filter { $0.type == .task }
+        
+        let item = filteredItems[indexPath.row]
+        
+        var content = cell.defaultContentConfiguration()
+        content.text = item.title
+        
+        // Format the subtitle based on item type
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateStyle = .short
+        dateFormatter.timeStyle = .short
+        
+        if item.type == .event, let start = item.startDate, let end = item.endDate {
+            content.secondaryText = "\(dateFormatter.string(from: start)) - \(dateFormatter.string(from: end))"
+        } else if let dueDate = item.dueDate {
+            content.secondaryText = "Due: \(dateFormatter.string(from: dueDate))"
+        }
+        
+        cell.contentConfiguration = content
+        return cell
+    }
+    
+    // MARK: - Table View Delegate
+    
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        tableView.deselectRow(at: indexPath, animated: true)
+        
+        // Get the selected item
+        let filteredItems = indexPath.section == 0
+            ? scheduleItems.filter { $0.type == .event }
+            : scheduleItems.filter { $0.type == .task }
+        
+        let item = filteredItems[indexPath.row]
+        
+        // Show details in an alert
+        var detailsMessage = ""
+        
+        if item.type == .event {
+            if let start = item.startDate, let end = item.endDate {
+                let dateFormatter = DateFormatter()
+                dateFormatter.dateStyle = .medium
+                dateFormatter.timeStyle = .short
+                
+                detailsMessage += "From: \(dateFormatter.string(from: start))\n"
+                detailsMessage += "To: \(dateFormatter.string(from: end))\n"
+            }
+        } else if let dueDate = item.dueDate {
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateStyle = .medium
+            dateFormatter.timeStyle = .short
+            
+            detailsMessage += "Due: \(dateFormatter.string(from: dueDate))\n"
+        }
+        
+        if let notes = item.notes, !notes.isEmpty {
+            detailsMessage += "\nNotes: \(notes)"
+        }
+        
+        let alert = UIAlertController(title: item.title, message: detailsMessage, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
+    }
+}
